@@ -13,7 +13,7 @@ Arb read_arb(std::istream& in)
 
   in >> vertices_amount;
 
-  while (--vertices_amount) {
+  for (int i = vertices_amount; i > 1; i--) {
     int u, v; in >> u >> v;
 
     arb_arcs.push_back(std::make_pair(--u, --v));

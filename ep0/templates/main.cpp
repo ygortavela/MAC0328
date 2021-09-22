@@ -13,6 +13,11 @@ int main(int argc, char** argv)
 
   size_t queries; std::cin >> queries;
 
+  while(queries--){
+    Vertex x, y; std::cin >> x >> y;
+    std::cout << (is_ancestor(--x, --y, data) ? "YES" : "NO")
+              << std::endl;
+  }
 
   return EXIT_SUCCESS;
 }
