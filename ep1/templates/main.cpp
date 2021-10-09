@@ -11,5 +11,8 @@ int main(int argc, char** argv)
   SATDigraph sat_digraph(std::cin);
   sat_digraph.print_digraph();
 
+  SATSolver sat_solver(sat_digraph);
+  sat_solver.print_strong_components();
+
   return EXIT_SUCCESS;
 }

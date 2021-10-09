@@ -13,12 +13,12 @@ typedef boost::adjacency_list<boost::vecS,
                               boost::vecS,
                               boost::directedS> Digraph;
 typedef boost::graph_traits<Digraph>::vertex_descriptor Vertex;
-typedef boost::graph_traits<Digraph>::vertices_size_type Size;
+typedef boost::graph_traits<Digraph>::vertices_size_type DigraphSize;
 
 class SATDigraph {
 private:
   int debug_level, variable_quantity, clause_quantity;
-  Digraph sat_digraph;
+  Digraph digraph;
   int map_variable_to_vertex(int variable);
   int map_vertex_to_negative_variable_vertex(int vertex);
   std::set<std::pair<int, int>> build_digraph_arcs(std::set<std::pair<int, int>> clauses);
@@ -26,16 +26,24 @@ public:
   SATDigraph(std::istream& in);
   void print_digraph();
   int get_debug_level() { return debug_level; }
-  Digraph get_sat_digraph() { return sat_digraph; }
+  Digraph& get_digraph() { return digraph; }
+  int get_digraph_size() { return 2 * variable_quantity; }
 };
 
 class SATSolver {
 private:
-  int variables_amount;
-  std::vector<int> discovery_time, finish_time;
-  std::stack<int> vertices_stack;
+  SATDigraph* sat_digraph;
+  int current_time, nscc;
+  std::vector<int> discovery_time, finish_time, lowlink, strong_component;
+  std::vector<bool> on_stack;
+  std::vector<Vertex> parent;
+  std::stack<Vertex> vertices_stack;
+  void run_dfs();
+  void process_vertex(Vertex current_vertex);
+public:
+  SATSolver(SATDigraph& built_sat_digraph);
+  void print_strong_components();
 };
 
-void process_vertex(Digraph &arb, Vertex current_vertex, std::vector<int> &discovery_time, std::vector<int> &finish_time, std::vector<int> &visited_vertices);
 
-#endif 
+#endif

@@ -7,6 +7,8 @@ SATDigraph::SATDigraph(std::istream& in) {
 
   in >> debug_level >> variable_quantity >> clause_quantity;
 
+  DigraphSize digraph_size = 2 * variable_quantity;
+
   for (int i = 0; i < clause_quantity; i++) {
     int u, v;
 
@@ -15,7 +17,7 @@ SATDigraph::SATDigraph(std::istream& in) {
   }
 
   arcs = build_digraph_arcs(clauses);
-  sat_digraph = Digraph(arcs.begin(), arcs.end(), 2 * variable_quantity);
+  digraph = Digraph(arcs.begin(), arcs.end(), digraph_size);
 }
 
 int SATDigraph::map_variable_to_vertex(int variable) {
@@ -54,10 +56,10 @@ std::set<std::pair<int, int>> SATDigraph::build_digraph_arcs(std::set<std::pair<
 }
 
 void SATDigraph::print_digraph() {
-  for (auto vp = boost::vertices(sat_digraph); vp.first != vp.second; ++vp.first) {
+  for (auto vp = boost::vertices(digraph); vp.first != vp.second; ++vp.first) {
     std::cout << "arcs that leave " << *vp.first << " go to:";
-    for (auto ep = boost::out_edges(*vp.first, sat_digraph); ep.first != ep.second; ++ep.first) {
-      Vertex target_vertex = boost::target(*ep.first, sat_digraph);
+    for (auto ep = boost::out_edges(*vp.first, digraph); ep.first != ep.second; ++ep.first) {
+      Vertex target_vertex = boost::target(*ep.first, digraph);
 
       std::cout << " " << target_vertex;
     }
@@ -65,53 +67,69 @@ void SATDigraph::print_digraph() {
   }
 }
 
-// Digraph read_arb(std::istream& in)
-// {
-//   std::vector<std::pair<int, int>> arb_arcs;
-//   Size vertices_amount;
+SATSolver::SATSolver(SATDigraph& built_sat_digraph) {
+  sat_digraph = &built_sat_digraph;
 
-//   in >> vertices_amount;
+  int digraph_size = sat_digraph->get_digraph_size();
 
-//   for (int i = vertices_amount; i > 1; i--) {
-//     int u, v; in >> u >> v;
+  current_time = 0;
+  nscc = 0;
+  discovery_time = std::vector<int>(digraph_size, -1);
+  finish_time = std::vector<int>(digraph_size);
+  lowlink = std::vector<int>(digraph_size);
+  strong_component = std::vector<int>(digraph_size, -1);
+  on_stack = std::vector<bool>(digraph_size, false);
+  parent = std::vector<Vertex>(digraph_size, -1);
 
-//     arb_arcs.push_back(std::make_pair(--u, --v));
-//   }
+  run_dfs();
+}
 
-//   return Digraph(arb_arcs.begin(), arb_arcs.end(), vertices_amount);
-// }
+void SATSolver::run_dfs() {
+  for (auto vp = boost::vertices(sat_digraph->get_digraph()); vp.first != vp.second; ++vp.first) {
+    Vertex current_vertex = *vp.first;
 
-// HeadStart preprocess(Digraph &arb, const Vertex& root)
-// {
-//   Size vertices_amount = boost::num_vertices(arb);
+    if (discovery_time[current_vertex] == -1) process_vertex(current_vertex);
+  }
+}
 
-//   std::vector<int> discovery_time(vertices_amount), finish_time(vertices_amount), visited_vertices(vertices_amount, 0);
+void SATSolver::process_vertex(Vertex current_vertex) {
+  discovery_time[current_vertex] = current_time;
+  lowlink[current_vertex] = current_time;
+  current_time++;
+  vertices_stack.push(current_vertex);
+  on_stack[current_vertex] = true;
 
-//   current_time = 0;
+  for (auto ep = boost::out_edges(current_vertex, sat_digraph->get_digraph()); ep.first != ep.second; ++ep.first) {
+    Vertex target_vertex = boost::target(*ep.first, sat_digraph->get_digraph());
 
-//   process_vertex(arb, root, discovery_time, finish_time, visited_vertices);
+    if (discovery_time[target_vertex] == -1) {
+      parent[target_vertex] = current_vertex;
+      process_vertex(target_vertex);
+      lowlink[current_vertex] = std::min(lowlink[current_vertex], lowlink[target_vertex]);
+    } else if (on_stack[target_vertex]) {
+      lowlink[current_vertex] = std::min(lowlink[current_vertex], discovery_time[target_vertex]);
+    }
+  }
 
-//   return HeadStart(discovery_time, finish_time);
-// }
+  finish_time[current_vertex] = ++current_time;
 
-// void process_vertex(Digraph &arb, Vertex current_vertex, std::vector<int> &discovery_time, std::vector<int> &finish_time, std::vector<int> &visited_vertices) {
-//   visited_vertices[current_vertex] = 1;
-//   discovery_time[current_vertex] = ++current_time;
+  if (lowlink[current_vertex] == discovery_time[current_vertex]) {
+    Vertex popped_vertex;
 
-//   for (auto ep = boost::out_edges(current_vertex, arb); ep.first != ep.second; ++ep.first) {
-//     Vertex target_vertex = boost::target(*ep.first, arb);
+    do {
+      popped_vertex = vertices_stack.top();
+      vertices_stack.pop();
+      strong_component[popped_vertex] = nscc;
+      on_stack[popped_vertex] = false;
+    } while (popped_vertex != current_vertex);
 
-//     if (!visited_vertices[target_vertex]) process_vertex(arb, target_vertex, discovery_time, finish_time, visited_vertices);
-//   }
+    nscc++;
+  }
+}
 
-//   finish_time[current_vertex] = ++current_time;
-// }
+void SATSolver::print_strong_components() {
+  for (int i = 0; i < sat_digraph->get_digraph_size(); i++) {
+    std::cout << i << ": " << strong_component[i] << std::endl;
+  }
+}
 
-
-// bool is_ancestor (const Vertex& u, const Vertex& v, const HeadStart& data)
-// {
-//   if (data.discovery_time[u] <= data.discovery_time[v] && data.finish_time[u] >= data.finish_time[v])
-//     return true;
-
-//   return false;
-// }
