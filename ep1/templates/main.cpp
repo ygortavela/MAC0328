@@ -12,6 +12,7 @@ int main(int argc, char** argv)
   sat_digraph.print_digraph();
 
   SATSolver sat_solver(sat_digraph);
+  sat_solver.satisfiability_check();
   sat_solver.print_strong_components();
 
   return EXIT_SUCCESS;

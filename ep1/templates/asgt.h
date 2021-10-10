@@ -27,6 +27,7 @@ public:
   int get_debug_level() { return debug_level; }
   Digraph& get_digraph() { return digraph; }
   int get_digraph_size() { return 2 * variable_quantity; }
+  int get_negative_variable_of(int vertex) { return map_vertex_to_negative_variable_vertex(vertex); }
 };
 
 class SATSolver {
@@ -41,6 +42,7 @@ private:
   void process_vertex(Vertex current_vertex);
 public:
   SATSolver(SATDigraph& built_sat_digraph);
+  void satisfiability_check();
   void print_strong_components();
 };
 

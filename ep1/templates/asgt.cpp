@@ -20,6 +20,20 @@ SATDigraph::SATDigraph(std::istream& in) {
   digraph = Digraph(arcs.begin(), arcs.end(), digraph_size);
 }
 
+/*
+ * Here I'm using a specific mapping function which seemed the most intuitive to me.
+ * Remembering that the way I chose this mapping affects the output of this program.
+ *
+ * For a given input of 3 variables, we have:
+ *
+ * not x3 -> vertex 0
+ * not x2 -> vertex 1
+ * not x1 -> vertex 2
+ * x1 -> vertex 3
+ * x2 -> vertex 4
+ * x3 -> vertex 5
+ *
+*/
 int SATDigraph::map_variable_to_vertex(int variable) {
   int vertex = variable + variable_quantity;
 
@@ -121,9 +135,46 @@ void SATSolver::process_vertex(Vertex current_vertex) {
   }
 }
 
-void SATSolver::print_strong_components() {
-  for (int i = 0; i < sat_digraph->get_digraph_size(); i++) {
-    std::cout << i << ": " << strong_component[i] << std::endl;
+void SATSolver::satisfiability_check() {
+  std::vector<int> solution(sat_digraph->get_digraph_size());
+  bool has_solution = true;
+  int negative_vertex, vertex_component, negative_vertex_component;
+
+  for (int i = sat_digraph->get_digraph_size() / 2; i < sat_digraph->get_digraph_size(); i++) {
+    negative_vertex = sat_digraph->get_negative_variable_of(i);
+    vertex_component = strong_component[i];
+    negative_vertex_component = strong_component[negative_vertex];
+
+    if (vertex_component == negative_vertex_component) {
+      has_solution = false;
+
+      break;
+    } else if (vertex_component < negative_vertex_component) {
+      solution[i] = 1;
+      solution[negative_vertex] = 0;
+      std::cout << "menor " << vertex_component << " neg " << negative_vertex_component << std::endl;
+    } else {
+      solution[i] = 0;
+      solution[negative_vertex] = 1;
+      std::cout << "maior " << vertex_component << " neg " << negative_vertex_component << std::endl;
+    }
   }
+
+  std::cout << (has_solution ? "YES" : "NO");
+
+  for (int i = sat_digraph->get_digraph_size() / 2; has_solution && i < sat_digraph->get_digraph_size(); i++)
+    std::cout << " " << solution[i];
+
+  std::cout << std::endl;
+}
+
+void SATSolver::print_strong_components() {
+  for (int i = sat_digraph->get_digraph_size() / 2; i < sat_digraph->get_digraph_size(); i++)
+    std::cout << strong_component[i] + 1 << " ";
+
+  for (int i = (sat_digraph->get_digraph_size() / 2) - 1; i >= 0; i--)
+    std::cout << strong_component[i] + 1 << " ";
+
+  std::cout << std::endl;
 }
 
