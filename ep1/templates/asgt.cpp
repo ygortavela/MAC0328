@@ -29,11 +29,7 @@ int SATDigraph::map_variable_to_vertex(int variable) {
 }
 
 int SATDigraph::map_vertex_to_negative_variable_vertex(int vertex) {
-  int variable = vertex - variable_quantity;
-
-  if (vertex >= variable_quantity) variable++;
-
-  return map_variable_to_vertex(variable * -1);
+  return (2 * variable_quantity) - vertex - 1;
 }
 
 std::set<std::pair<int, int>> SATDigraph::build_digraph_arcs(std::set<std::pair<int, int>> clauses) {
@@ -45,8 +41,6 @@ std::set<std::pair<int, int>> SATDigraph::build_digraph_arcs(std::set<std::pair<
     v = (*clauses_iterator).second;
     not_u = map_vertex_to_negative_variable_vertex(u);
     not_v = map_vertex_to_negative_variable_vertex(v);
-
-    std::cout << "u: " << u << " v: " << v << " not_u: " << not_u << " not_v: " << not_v << "\n";
 
     arcs.insert(std::make_pair(not_u, v));
     arcs.insert(std::make_pair(not_v, u));
