@@ -35,9 +35,8 @@ class SATSolver {
 private:
   SATDigraph* sat_digraph;
   int current_time, nscc;
-  std::vector<int> discovery_time, finish_time, lowlink, strong_component;
+  std::vector<int> discovery_time, lowlink, strong_component;
   std::vector<bool> on_stack;
-  std::vector<Vertex> parent;
   std::stack<Vertex> vertices_stack;
   void run_dfs();
   void process_vertex(Vertex current_vertex);

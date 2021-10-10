@@ -89,11 +89,9 @@ SATSolver::SATSolver(SATDigraph& built_sat_digraph) {
   current_time = 0;
   nscc = 0;
   discovery_time = std::vector<int>(digraph_size, -1);
-  finish_time = std::vector<int>(digraph_size);
   lowlink = std::vector<int>(digraph_size);
   strong_component = std::vector<int>(digraph_size, -1);
   on_stack = std::vector<bool>(digraph_size, false);
-  parent = std::vector<Vertex>(digraph_size, -1);
 
   run_dfs();
 
@@ -129,15 +127,12 @@ void SATSolver::process_vertex(Vertex current_vertex) {
     Vertex target_vertex = boost::target(*ep.first, sat_digraph->get_digraph());
 
     if (discovery_time[target_vertex] == -1) {
-      parent[target_vertex] = current_vertex;
       process_vertex(target_vertex);
       lowlink[current_vertex] = std::min(lowlink[current_vertex], lowlink[target_vertex]);
     } else if (on_stack[target_vertex]) {
       lowlink[current_vertex] = std::min(lowlink[current_vertex], discovery_time[target_vertex]);
     }
   }
-
-  finish_time[current_vertex] = ++current_time;
 
   if (lowlink[current_vertex] == discovery_time[current_vertex]) {
     Vertex popped_vertex;
