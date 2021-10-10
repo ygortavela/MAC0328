@@ -1,7 +1,5 @@
 #include "asgt.h"
 
-int current_time;
-
 SATDigraph::SATDigraph(std::istream& in) {
   std::set<std::pair<int, int>> clauses, arcs;
 
