@@ -16,9 +16,10 @@ typedef boost::graph_traits<Digraph>::vertices_size_type DigraphSize;
 
 class SATDigraph {
 private:
-  int debug_level, variable_quantity, clause_quantity;
+  int debug_level, variable_quantity, clause_quantity, arcs_quantity;
   Digraph digraph;
   int map_variable_to_vertex(int variable);
+  int map_vertex_to_variable(int vertex);
   int map_vertex_to_negative_variable_vertex(int vertex);
   std::set<std::pair<int, int>> build_digraph_arcs(std::set<std::pair<int, int>> clauses);
 public:
@@ -40,10 +41,10 @@ private:
   std::stack<Vertex> vertices_stack;
   void run_dfs();
   void process_vertex(Vertex current_vertex);
-public:
-  SATSolver(SATDigraph& built_sat_digraph);
   void satisfiability_check();
   void print_strong_components();
+public:
+  SATSolver(SATDigraph& built_sat_digraph);
 };
 
 

@@ -17,6 +17,8 @@ SATDigraph::SATDigraph(std::istream& in) {
   }
 
   arcs = build_digraph_arcs(clauses);
+  arcs_quantity = arcs.size();
+
   digraph = Digraph(arcs.begin(), arcs.end(), digraph_size);
 }
 
@@ -37,9 +39,13 @@ SATDigraph::SATDigraph(std::istream& in) {
 int SATDigraph::map_variable_to_vertex(int variable) {
   int vertex = variable + variable_quantity;
 
-  if (variable > 0) vertex--;
+  return variable > 0 ? --vertex : vertex;
+}
 
-  return vertex;
+int SATDigraph::map_vertex_to_variable(int vertex) {
+  int variable = vertex - variable_quantity;
+
+  return vertex >= variable_quantity ? ++variable : variable;
 }
 
 int SATDigraph::map_vertex_to_negative_variable_vertex(int vertex) {
@@ -64,14 +70,14 @@ std::set<std::pair<int, int>> SATDigraph::build_digraph_arcs(std::set<std::pair<
 }
 
 void SATDigraph::print_digraph() {
+  std::cout << variable_quantity << " " << arcs_quantity << std::endl;
+
   for (auto vp = boost::vertices(digraph); vp.first != vp.second; ++vp.first) {
-    std::cout << "arcs that leave " << *vp.first << " go to:";
     for (auto ep = boost::out_edges(*vp.first, digraph); ep.first != ep.second; ++ep.first) {
       Vertex target_vertex = boost::target(*ep.first, digraph);
 
-      std::cout << " " << target_vertex;
+      std::cout << map_vertex_to_variable(*vp.first) << " " << map_vertex_to_variable(target_vertex) << std::endl;
     }
-    std::cout << std::endl;
   }
 }
 
@@ -90,6 +96,18 @@ SATSolver::SATSolver(SATDigraph& built_sat_digraph) {
   parent = std::vector<Vertex>(digraph_size, -1);
 
   run_dfs();
+
+  switch (sat_digraph->get_debug_level()) {
+    case 0:
+      satisfiability_check();
+      break;
+    case 1:
+      print_strong_components();
+      break;
+    case 2:
+      sat_digraph->print_digraph();
+      break;
+  }
 }
 
 void SATSolver::run_dfs() {
@@ -152,11 +170,9 @@ void SATSolver::satisfiability_check() {
     } else if (vertex_component < negative_vertex_component) {
       solution[i] = 1;
       solution[negative_vertex] = 0;
-      std::cout << "menor " << vertex_component << " neg " << negative_vertex_component << std::endl;
     } else {
       solution[i] = 0;
       solution[negative_vertex] = 1;
-      std::cout << "maior " << vertex_component << " neg " << negative_vertex_component << std::endl;
     }
   }
 
