@@ -31,7 +31,6 @@ int main(int argc, char** argv)
         auto u = boost::source(edge, graph) + 1;
         auto v = boost::target(edge, graph) + 1;
         std::cout << "bcc[" << u << "," << v << "] = " << graph[edge].bcc << std::endl;
-        std::cout << edge << std::endl;
       }
       break;
     }
