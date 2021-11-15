@@ -47,7 +47,18 @@ std::tuple<bool,
            boost::optional<FeasiblePotential>>
 has_negative_cycle(Digraph& digraph)
 {
-  int negative_cycle_source = bellman_ford_negative_cycle_source(digraph, 0);
+  Vertex aux_vertex = boost::add_vertex(digraph);
+
+  for (const auto& vertex : boost::make_iterator_range(boost::vertices(digraph))) {
+      Arc new_arc;
+
+      if (vertex != aux_vertex) {
+        std::tie(new_arc, std::ignore) = add_edge(aux_vertex, vertex, digraph);
+        digraph[new_arc].cost = 0.0;
+      }
+  }
+
+  int negative_cycle_source = bellman_ford_negative_cycle_source(digraph, aux_vertex);
 
   if (negative_cycle_source >= 0) {
     Walk walk = build_negative_cycle_walk(digraph, negative_cycle_source);
@@ -55,6 +66,7 @@ has_negative_cycle(Digraph& digraph)
     return {true, NegativeCycle(walk), boost::none};
   }
 
+  boost::remove_vertex(aux_vertex, digraph);
   vector<double> y(get_feasible_potential(digraph));
 
   return {false, boost::none, FeasiblePotential(digraph, y)};
@@ -162,19 +174,6 @@ Walk build_negative_cycle_walk(Digraph& digraph, Vertex source) {
 
 vector<double> get_feasible_potential(Digraph& digraph) {
   vector<double> feasible_potential;
-  Vertex new_vertex = boost::add_vertex(digraph);
-
-  for (const auto& vertex : boost::make_iterator_range(boost::vertices(digraph))) {
-      Arc new_arc;
-
-      if (vertex != new_vertex) {
-        std::tie(new_arc, std::ignore) = add_edge(new_vertex, vertex, digraph);
-        digraph[new_arc].cost = 0.0;
-      }
-  }
-
-  bellman_ford_negative_cycle_source(digraph, new_vertex);
-  boost::remove_vertex(new_vertex, digraph);
 
   for (const auto& vertex : boost::make_iterator_range(boost::vertices(digraph)))
     feasible_potential.push_back(digraph[vertex].distance_cost);
