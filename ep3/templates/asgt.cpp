@@ -20,8 +20,8 @@ using boost::num_vertices;
 using boost::out_edges;
 using std::vector;
 
-bool bellman_ford(Digraph& digraph, Vertex source);
-Walk build_negative_cycle_walk(Digraph& digraph);
+int bellman_ford_negative_cycle_source(Digraph& digraph, Vertex source);
+Walk build_negative_cycle_walk(Digraph& digraph, Vertex source);
 vector<double> get_feasible_potential(Digraph& digraph);
 
 Digraph build_digraph(const Digraph& market)
@@ -47,11 +47,10 @@ std::tuple<bool,
            boost::optional<FeasiblePotential>>
 has_negative_cycle(Digraph& digraph)
 {
-  bool digraph_has_no_negative_cycle = bellman_ford(digraph, 0);
+  int negative_cycle_source = bellman_ford_negative_cycle_source(digraph, 0);
 
-  if (!digraph_has_no_negative_cycle) {
-    Walk walk = build_negative_cycle_walk(digraph);
-
+  if (negative_cycle_source >= 0) {
+    Walk walk = build_negative_cycle_walk(digraph, negative_cycle_source);
 
     return {true, NegativeCycle(walk), boost::none};
   }
@@ -65,9 +64,10 @@ Loophole build_loophole(const NegativeCycle& negcycle,
                         const Digraph& aux_digraph,
                         const Digraph& market)
 {
-  Walk walk(market, 0);
+  vector<Arc> cycle_arcs = negcycle.get();
+  Walk walk(market, boost::source(cycle_arcs[0], market));
 
-  for (const auto& arc : negcycle.get())
+  for (const auto& arc : cycle_arcs)
     walk.extend(boost::edge(boost::source(arc, aux_digraph), boost::target(arc, aux_digraph), market).first);
 
   return Loophole(walk);
@@ -87,7 +87,7 @@ FeasibleMultiplier build_feasmult(const FeasiblePotential& feaspot,
   return FeasibleMultiplier(market, feasible_multiplier);
 }
 
-bool bellman_ford(Digraph& digraph, Vertex source) {
+int bellman_ford_negative_cycle_source(Digraph& digraph, Vertex source) {
   for (const auto& vertex : boost::make_iterator_range(boost::vertices(digraph))) {
     digraph[vertex].distance_cost = std::numeric_limits<double>::infinity();
     digraph[vertex].predecessor = -1;
@@ -116,25 +116,36 @@ bool bellman_ford(Digraph& digraph, Vertex source) {
     Vertex source_vertex = boost::source(arc, digraph);
     Vertex target_vertex = boost::target(arc, digraph);
 
-    if (digraph[source_vertex].distance_cost + digraph[arc].cost < digraph[target_vertex].distance_cost) return false;
+    if (digraph[source_vertex].distance_cost + digraph[arc].cost < digraph[target_vertex].distance_cost)
+      return source_vertex;
   }
 
-  return true;
+  return -1;
 }
 
-Walk build_negative_cycle_walk(Digraph& digraph) {
+Walk build_negative_cycle_walk(Digraph& digraph, Vertex source) {
+  std::vector<bool> visited_vertices(num_vertices(digraph), false);
+
+  visited_vertices[source] = true;
+  Vertex parent = digraph[source].predecessor;
+
+  while (!visited_vertices[parent]) {
+    visited_vertices[parent] = true;
+    parent = digraph[parent].predecessor;
+  }
+
   std::stack<Vertex> cycle_stack;
 
-  Vertex current_vertex = 0;
+  Vertex current_vertex = parent;
   cycle_stack.push(current_vertex);
   current_vertex = digraph[current_vertex].predecessor;
 
-  while (current_vertex != 0) {
+  while (current_vertex != parent) {
     cycle_stack.push(current_vertex);
     current_vertex = digraph[current_vertex].predecessor;
   }
 
-  current_vertex = 0;
+  current_vertex = parent;
   Walk walk(digraph, current_vertex);
 
   while (!cycle_stack.empty()) {
@@ -162,7 +173,7 @@ vector<double> get_feasible_potential(Digraph& digraph) {
       }
   }
 
-  bellman_ford(digraph, new_vertex);
+  bellman_ford_negative_cycle_source(digraph, new_vertex);
   boost::remove_vertex(new_vertex, digraph);
 
   for (const auto& vertex : boost::make_iterator_range(boost::vertices(digraph)))

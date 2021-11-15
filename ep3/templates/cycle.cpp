@@ -91,6 +91,7 @@ Cycle::Cycle(const Walk& cycle)
     _arcs(cycle.arcs())
 {
   if (!cycle.is_cycle()) {
+    std::cout << "@@@@@@@ wtf" << std::endl;
     throw NotCycle_error(cycle);
   }
 }
