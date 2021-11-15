@@ -22,6 +22,7 @@ using std::vector;
 
 bool bellman_ford(Digraph& digraph, Vertex source);
 Walk build_negative_cycle_walk(Digraph& digraph);
+vector<double> get_feasible_potential(Digraph& digraph);
 
 Digraph build_digraph(const Digraph& market)
 {
@@ -35,9 +36,6 @@ Digraph build_digraph(const Digraph& market)
 
       std::tie(new_arc, std::ignore) = add_edge(source_vertex, target_vertex, digraph);
       digraph[new_arc].cost = -log(market[*ep.first].cost);
-
-      // PRINT EXCLUIR DEPOIS
-      std::cout << new_arc << " " << digraph[new_arc].cost << " market: " << market[*ep.first].cost << std::endl;
     }
   }
 
@@ -51,14 +49,6 @@ has_negative_cycle(Digraph& digraph)
 {
   bool digraph_has_no_negative_cycle = bellman_ford(digraph, 0);
 
-  std::cout << " tem ciclo negativo? " << !digraph_has_no_negative_cycle << "\n";
-
-  /* Replace `NegativeCycle(walk)` with `boost::none` in the next
-   * command to trigger "negative cycle reported but not computed".
-   * Comment the whole `return` and uncomment the remaining lines to
-   * exercise construction of a feasible potential. */
-
-  // encourage RVO
   if (!digraph_has_no_negative_cycle) {
     Walk walk = build_negative_cycle_walk(digraph);
 
@@ -66,12 +56,8 @@ has_negative_cycle(Digraph& digraph)
     return {true, NegativeCycle(walk), boost::none};
   }
 
-  /* Replace `FeasiblePotential(digraph, y)` with `boost::none` in the
-   * next command to trigger "feasible potential reported but not
-   * computed". */
+  vector<double> y(get_feasible_potential(digraph));
 
-  // encourage RVO
-  vector<double> y(num_vertices(digraph), 0.0);
   return {false, boost::none, FeasiblePotential(digraph, y)};
 }
 
@@ -91,10 +77,14 @@ FeasibleMultiplier build_feasmult(const FeasiblePotential& feaspot,
                                   const Digraph& aux_digraph,
                                   const Digraph& market)
 {
-  vector<double> z(num_vertices(market), 1.0);
+  int vertices_quantity = num_vertices(market);
+  vector<double> feasible_multiplier(vertices_quantity);
+  vector<double> feasible_potential = feaspot.potential();
 
-  // encourage RVO
-  return FeasibleMultiplier(market, z);
+  for (int i = 0; i < vertices_quantity; i++)
+    feasible_multiplier[i] = 1 / exp(feasible_potential[i]);
+
+  return FeasibleMultiplier(market, feasible_multiplier);
 }
 
 bool bellman_ford(Digraph& digraph, Vertex source) {
@@ -157,4 +147,26 @@ Walk build_negative_cycle_walk(Digraph& digraph) {
   }
 
   return walk;
+}
+
+vector<double> get_feasible_potential(Digraph& digraph) {
+  vector<double> feasible_potential;
+  Vertex new_vertex = boost::add_vertex(digraph);
+
+  for (const auto& vertex : boost::make_iterator_range(boost::vertices(digraph))) {
+      Arc new_arc;
+
+      if (vertex != new_vertex) {
+        std::tie(new_arc, std::ignore) = add_edge(new_vertex, vertex, digraph);
+        digraph[new_arc].cost = 0.0;
+      }
+  }
+
+  bellman_ford(digraph, new_vertex);
+  boost::remove_vertex(new_vertex, digraph);
+
+  for (const auto& vertex : boost::make_iterator_range(boost::vertices(digraph)))
+    feasible_potential.push_back(digraph[vertex].distance_cost);
+
+  return feasible_potential;
 }
