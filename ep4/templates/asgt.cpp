@@ -3,15 +3,15 @@
 #include <vector>
 #include <limits>
 #include <math.h>
-#include <queue>
 #include <cstdlib>
 #include <iostream>
+#include <queue>
+#include <stack>
 
 #define BOOST_ALLOW_DEPRECATED_HEADERS
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
 #include <boost/optional.hpp>
-
 
 struct BundledVertex
 {
@@ -24,7 +24,8 @@ struct BundledArc
   int capacity;
   int flow;
   int orientation;
-  BundledArc() : capacity(0), flow(0), orientation(1) {}
+  int index;
+  BundledArc() : capacity(0), flow(0), orientation(1), index(0) {}
 };
 
 struct BundledGraph
@@ -46,9 +47,13 @@ typedef boost::graph_traits<Digraph>::vertex_descriptor Vertex;
 typedef boost::graph_traits<Digraph>::edge_descriptor Arc;
 typedef boost::graph_traits<Digraph>::vertices_size_type VerticesSize;
 
+std::vector<Arc> arc_list;
+
 Digraph read_flow_digraph(std::istream& is);
+void edmonds_karp_max_integral_flow(Digraph& flow_digraph);
 Digraph build_residual_digraph(const Digraph& flow_digraph);
 void run_bfs(Digraph& digraph);
+void augment_flow_digraph(const Digraph& residual_digraph, Digraph& flow_digraph);
 
 Digraph read_flow_digraph(std::istream& is)
 {
@@ -58,16 +63,40 @@ Digraph read_flow_digraph(std::istream& is)
 
   size_t m; is >> m;
 
-  is >> flow_digraph[boost::graph_bundle].source >> flow_digraph[boost::graph_bundle].target;
+  arc_list.reserve(m);
 
-  while (m--) {
+  int s, t; is >> s >> t;
+
+  flow_digraph[boost::graph_bundle].source = --s;
+  flow_digraph[boost::graph_bundle].target = --t;
+
+  for (int i = 1; m--; i++) {
     int u, v; is >> u >> v;
     Arc a;
     std::tie(a, std::ignore) = boost::add_edge(--u, --v, flow_digraph);
+    flow_digraph[a].index = i;
+    arc_list.push_back(a);
     is >> flow_digraph[a].capacity;
   }
 
   return flow_digraph;
+}
+
+void edmonds_karp_max_integral_flow(Digraph& flow_digraph) {
+  Vertex target_vertex = flow_digraph[boost::graph_bundle].target;
+
+  while (1) {
+    Digraph residual_digraph = build_residual_digraph(flow_digraph);
+    run_bfs(residual_digraph);
+
+    if (residual_digraph[target_vertex].parent != -1) {
+      augment_flow_digraph(residual_digraph, flow_digraph);
+    } else {
+      std::cout << 1 << " " << residual_digraph[boost::graph_bundle].vertices_reachable_by_source << std::endl;
+      break;
+    }
+  }
+
 }
 
 Digraph build_residual_digraph(const Digraph& flow_digraph) {
@@ -77,7 +106,7 @@ Digraph build_residual_digraph(const Digraph& flow_digraph) {
   Arc positive_arc, negative_arc;
   int positive_arc_rc, negative_arc_rc;
 
-  for (const auto& arc : boost::make_iterator_range(boost::edges(flow_digraph))) {
+  for (const auto& arc : arc_list) {
     u = boost::source(arc, flow_digraph);
     v = boost::target(arc, flow_digraph);
     positive_arc_rc = flow_digraph[arc].capacity - flow_digraph[arc].flow;
@@ -119,7 +148,7 @@ void run_bfs(Digraph& digraph) {
     for (auto ep = boost::out_edges(current_vertex, digraph); ep.first != ep.second; ++ep.first) {
       Vertex target_vertex = boost::target(*ep.first, digraph);
 
-      if (digraph[target_vertex].parent != -1) {
+      if (digraph[target_vertex].parent == -1) {
         vertex_to_process.push(target_vertex);
         digraph[target_vertex].parent = current_vertex;
         digraph[boost::graph_bundle].vertices_reachable_by_source++;
@@ -128,9 +157,54 @@ void run_bfs(Digraph& digraph) {
   }
 }
 
+void augment_flow_digraph(const Digraph& residual_digraph, Digraph& flow_digraph) {
+  std::stack<Arc> min_st_path;
+  Vertex source_vertex = residual_digraph[boost::graph_bundle].source;
+  Vertex target_vertex = residual_digraph[boost::graph_bundle].target;
+  Vertex current_vertex = residual_digraph[target_vertex].parent;
+  Arc arc = boost::edge(current_vertex, target_vertex, residual_digraph).first;
+  int min_residual_capacity = residual_digraph[arc].capacity;
+
+
+  min_st_path.push(arc);
+
+  while (current_vertex != source_vertex) {
+    arc = boost::edge(residual_digraph[current_vertex].parent, current_vertex, residual_digraph).first;
+    min_st_path.push(arc);
+    min_residual_capacity = std::min(min_residual_capacity, residual_digraph[arc].capacity);
+    current_vertex = residual_digraph[current_vertex].parent;
+  }
+
+  std::cout << 0 << " " << min_residual_capacity << " " << min_st_path.size() << std::endl;
+
+  while (!min_st_path.empty()) {
+    Arc top_arc = min_st_path.top(), flow_arc;
+    int arc_orientation = residual_digraph[top_arc].orientation;
+
+    if (arc_orientation == -1) {
+      flow_arc = boost::edge(boost::target(top_arc, residual_digraph), boost::source(top_arc, residual_digraph), flow_digraph).first;
+      flow_digraph[flow_arc].flow -= min_residual_capacity;
+    } else {
+      flow_arc = boost::edge(boost::source(top_arc, residual_digraph), boost::target(top_arc, residual_digraph), flow_digraph).first;
+      flow_digraph[flow_arc].flow += min_residual_capacity;
+    }
+
+    std::cout << flow_digraph[flow_arc].index * arc_orientation << " ";
+    min_st_path.pop();
+  }
+
+  std::cout << std::endl;
+}
+
+int calculate_flow_value(const Digraph& flow_digraph) {
+
+}
+
 int main(int argc, char** argv)
 {
   Digraph flow_digraph{read_flow_digraph(std::cin)};
+
+  edmonds_karp_max_integral_flow(flow_digraph);
 
   return EXIT_SUCCESS;
 }
