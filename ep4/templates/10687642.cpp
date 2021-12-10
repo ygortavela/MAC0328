@@ -1,12 +1,10 @@
 #include <utility>
-#include <tuple>
 #include <vector>
-#include <limits>
-#include <math.h>
 #include <cstdlib>
 #include <iostream>
 #include <queue>
 #include <stack>
+#include <set>
 
 #define BOOST_ALLOW_DEPRECATED_HEADERS
 #include <boost/graph/adjacency_list.hpp>
@@ -32,8 +30,7 @@ struct BundledGraph
 {
   int source;
   int target;
-  int vertices_reachable_by_source;
-  BundledGraph() : vertices_reachable_by_source(0) {}
+  std::set<int> vertices_reachable_by_source;
 };
 
 typedef boost::adjacency_list<boost::vecS,
@@ -54,6 +51,7 @@ void edmonds_karp_max_integral_flow(Digraph& flow_digraph);
 Digraph build_residual_digraph(const Digraph& flow_digraph);
 void run_bfs(Digraph& digraph);
 void augment_flow_digraph(const Digraph& residual_digraph, Digraph& flow_digraph);
+int calculate_flow_value(const Digraph& flow_digraph, const std::set<int>& vertices_reachable_by_source);
 
 Digraph read_flow_digraph(std::istream& is)
 {
@@ -92,7 +90,15 @@ void edmonds_karp_max_integral_flow(Digraph& flow_digraph) {
     if (residual_digraph[target_vertex].parent != -1) {
       augment_flow_digraph(residual_digraph, flow_digraph);
     } else {
-      std::cout << 1 << " " << residual_digraph[boost::graph_bundle].vertices_reachable_by_source << std::endl;
+      int flow_value = calculate_flow_value(flow_digraph, residual_digraph[boost::graph_bundle].vertices_reachable_by_source);
+
+      std::cout << 1 << " " << flow_value << " " << residual_digraph[boost::graph_bundle].vertices_reachable_by_source.size();
+
+      for (auto vertex_reachable_by_source : residual_digraph[boost::graph_bundle].vertices_reachable_by_source)
+        std::cout << " " << ++vertex_reachable_by_source;
+
+      std::cout << std::endl;
+
       break;
     }
   }
@@ -138,10 +144,10 @@ void run_bfs(Digraph& digraph) {
 
   vertex_to_process.push(source);
   digraph[source].parent = source;
-  digraph[boost::graph_bundle].vertices_reachable_by_source++;
 
   while (!vertex_to_process.empty()) {
     Vertex current_vertex = vertex_to_process.front();
+  digraph[boost::graph_bundle].vertices_reachable_by_source.insert(current_vertex);
 
     vertex_to_process.pop();
 
@@ -151,7 +157,6 @@ void run_bfs(Digraph& digraph) {
       if (digraph[target_vertex].parent == -1) {
         vertex_to_process.push(target_vertex);
         digraph[target_vertex].parent = current_vertex;
-        digraph[boost::graph_bundle].vertices_reachable_by_source++;
       }
     }
   }
@@ -196,12 +201,22 @@ void augment_flow_digraph(const Digraph& residual_digraph, Digraph& flow_digraph
   std::cout << std::endl;
 }
 
-int calculate_flow_value(const Digraph& flow_digraph) {
+int calculate_flow_value(const Digraph& flow_digraph, const std::set<int>& vertices_reachable_by_source) {
+  int flow_value = 0;
 
+  for (auto vertex_reachable_by_source : vertices_reachable_by_source) {
+    for (auto ep = boost::out_edges(vertex_reachable_by_source, flow_digraph); ep.first != ep.second; ++ep.first) {
+      Vertex target_vertex = boost::target(*ep.first, flow_digraph);
+
+      if (!vertices_reachable_by_source.count(target_vertex))
+        flow_value += flow_digraph[*ep.first].capacity;
+    }
+  }
+
+  return flow_value;
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
   Digraph flow_digraph{read_flow_digraph(std::cin)};
 
   edmonds_karp_max_integral_flow(flow_digraph);
