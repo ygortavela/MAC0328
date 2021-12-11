@@ -30,7 +30,6 @@ struct BundledGraph
 {
   int source;
   int target;
-  std::set<int> vertices_reachable_by_source;
 };
 
 typedef boost::adjacency_list<boost::vecS,
@@ -51,7 +50,8 @@ void edmonds_karp_max_integral_flow(Digraph& flow_digraph);
 Digraph build_residual_digraph(const Digraph& flow_digraph);
 void run_bfs(Digraph& digraph);
 void augment_flow_digraph(const Digraph& residual_digraph, Digraph& flow_digraph);
-int calculate_flow_value(const Digraph& flow_digraph, const std::set<int>& vertices_reachable_by_source);
+void calculate_flow_value(const Digraph& residual_digraph, const Digraph& flow_digraph);
+std::set<Vertex> get_vertices_reachable_by_source_in(const Digraph& residual_digraph);
 
 Digraph read_flow_digraph(std::istream& is)
 {
@@ -90,14 +90,7 @@ void edmonds_karp_max_integral_flow(Digraph& flow_digraph) {
     if (residual_digraph[target_vertex].parent != -1) {
       augment_flow_digraph(residual_digraph, flow_digraph);
     } else {
-      int flow_value = calculate_flow_value(flow_digraph, residual_digraph[boost::graph_bundle].vertices_reachable_by_source);
-
-      std::cout << 1 << " " << flow_value << " " << residual_digraph[boost::graph_bundle].vertices_reachable_by_source.size();
-
-      for (auto vertex_reachable_by_source : residual_digraph[boost::graph_bundle].vertices_reachable_by_source)
-        std::cout << " " << ++vertex_reachable_by_source;
-
-      std::cout << std::endl;
+      calculate_flow_value(residual_digraph, flow_digraph);
 
       break;
     }
@@ -147,7 +140,6 @@ void run_bfs(Digraph& digraph) {
 
   while (!vertex_to_process.empty()) {
     Vertex current_vertex = vertex_to_process.front();
-  digraph[boost::graph_bundle].vertices_reachable_by_source.insert(current_vertex);
 
     vertex_to_process.pop();
 
@@ -194,18 +186,21 @@ void augment_flow_digraph(const Digraph& residual_digraph, Digraph& flow_digraph
       flow_digraph[flow_arc].flow += min_residual_capacity;
     }
 
-    std::cout << flow_digraph[flow_arc].index * arc_orientation << " ";
     min_st_path.pop();
+    std::cout << flow_digraph[flow_arc].index * arc_orientation;
+
+    if (!min_st_path.empty()) std::cout << " ";
   }
 
   std::cout << std::endl;
 }
 
-int calculate_flow_value(const Digraph& flow_digraph, const std::set<int>& vertices_reachable_by_source) {
+void calculate_flow_value(const Digraph& residual_digraph, const Digraph& flow_digraph) {
+  std::set<Vertex> vertices_reachable_by_source = get_vertices_reachable_by_source_in(residual_digraph);
   int flow_value = 0;
 
-  for (auto vertex_reachable_by_source : vertices_reachable_by_source) {
-    for (auto ep = boost::out_edges(vertex_reachable_by_source, flow_digraph); ep.first != ep.second; ++ep.first) {
+  for (const auto& vertex : vertices_reachable_by_source) {
+    for (auto ep = boost::out_edges(vertex, flow_digraph); ep.first != ep.second; ++ep.first) {
       Vertex target_vertex = boost::target(*ep.first, flow_digraph);
 
       if (!vertices_reachable_by_source.count(target_vertex))
@@ -213,7 +208,21 @@ int calculate_flow_value(const Digraph& flow_digraph, const std::set<int>& verti
     }
   }
 
-  return flow_value;
+  std::cout << 1 << " " << flow_value << " " << vertices_reachable_by_source.size();
+
+  for (auto vertex : vertices_reachable_by_source)
+    std::cout << " " << ++vertex;
+
+  std::cout << std::endl;
+}
+
+std::set<Vertex> get_vertices_reachable_by_source_in(const Digraph& residual_digraph) {
+  std::set<Vertex> vertices_reachable_by_source;
+
+  for (const auto& vertex : boost::make_iterator_range(boost::vertices(residual_digraph)))
+    if (residual_digraph[vertex].parent != -1) vertices_reachable_by_source.insert(vertex);
+
+  return vertices_reachable_by_source;
 }
 
 int main(int argc, char** argv) {
